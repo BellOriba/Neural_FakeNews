@@ -1,51 +1,11 @@
-import pandas as pd
 import time # Só pra gravar o tempo de computação
-
-# Bibliotecas para o exemplo do ChatGPT
+import preprocess
+import model as mdl
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
 from sklearn.feature_extraction.text import CountVectorizer
 
-data = pd.read_csv("./data/fake_and_real_news.csv")
-
-# Converte a label de string para int, fica mais fácil de trabalhar
-data['label'] = data['label'].map({'Fake': 0, 'Real': 1})
-# Divide o dataset entre Dados de Treino e Dados de Teste (80%/20%)
-train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
-
-# ------------------------------------------------
-# Código Exemplo do ChatGPT:
-# Define a custom Dataset class:
-class NewsDataset(Dataset):
-    def __init__(self, dataframe, vectorizer):
-        self.dataframe = dataframe
-        self.vectorizer = vectorizer
-
-    def __len__(self):
-        return len(self.dataframe)
-
-    def __getitem__(self, idx):
-        text = self.dataframe.iloc[idx]['Text']
-        label = self.dataframe.iloc[idx]['label']
-        vectorized_text = self.vectorizer.transform([text]).toarray().squeeze()
-        return vectorized_text, label
-
-# Define the neural network model:
-class FakeNewsClassifier(nn.Module):
-    def __init__(self, input_size):
-        super(FakeNewsClassifier, self).__init__()
-        self.fc1 = nn.Linear(input_size, 64)
-        self.fc2 = nn.Linear(64, 32)
-        self.fc3 = nn.Linear(32, 2)  # 2 classes: Fake or Real
-
-    def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+train_data, test_data = preprocess.splitDataSet("./data/fake_and_real_news.csv")
 
 # Record the starting time
 start_time = time.time()
@@ -60,18 +20,15 @@ test_text = test_data['Text']
 test_features = vectorizer.transform(test_text)
 test_labels = test_data['label']
 
-model = FakeNewsClassifier(input_size)
-
-# Loss function and optimizer
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+model = mdl.FakeNewsClassifier(input_size)
+criterion, optimizer = mdl.lossOptimizer(model)
 
 # Define batch size
 batch_size = 64
 
 # Create datasets and data loaders
-train_dataset = NewsDataset(train_data, vectorizer)
-test_dataset = NewsDataset(test_data, vectorizer)
+train_dataset = preprocess.NewsDataset(train_data, vectorizer)
+test_dataset = preprocess.NewsDataset(test_data, vectorizer)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=batch_size)
@@ -121,3 +78,4 @@ with open('model_weights.txt', 'w') as file:
         file.write(str(param.cpu().numpy()))  # Convert tensor to numpy array for saving
         file.write("\n\n")
 
+print("inputSize: ", input_size)
